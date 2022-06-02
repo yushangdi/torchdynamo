@@ -379,6 +379,7 @@ class Scheduler:
 
         self.compute_users()
         self.dead_node_elimination()
+        self.topo_sort_nodes()
         self.enqueue(self.nodes)
 
     def compute_users(self):
@@ -473,6 +474,39 @@ class Scheduler:
             return
         if node.can_remove_buffer(broadcast_after_reduce=broadcast_after_reduce):
             V.graph.removed_buffers.add(name)
+
+    def topo_sort_nodes(self):
+        free_nodes = set()
+        sorted_nodes = []
+        for node in self.nodes:
+            if not node.unmet_dependencies:
+                free_nodes.add(node.get_name())
+                sorted_nodes.append(node)
+
+        i = 0
+        while i < len(sorted_nodes):
+            for user in sorted_nodes[i].users:
+                node = user.node
+                if not isinstance(node, BaseSchedulerNode):
+                    continue
+                if node.unmet_dependencies:
+                    node.unmet_dependencies = {
+                        dep
+                        for dep in node.unmet_dependencies
+                        if dep.name not in free_nodes
+                    }
+                    if not node.unmet_dependencies:
+                        # All the dependency has been satisfied
+                        free_nodes.add(node.get_name())
+                        sorted_nodes.append(node)
+            i += 1
+
+        # Append any remaining nodes
+        for node in self.nodes:
+            if node.get_name() not in free_nodes:
+                sorted_nodes.append(node)
+
+        self.nodes = sorted_nodes
 
     def enqueue(self, node):
         if isinstance(node, (tuple, list)):
