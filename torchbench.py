@@ -332,6 +332,38 @@ def randomize_input(inputs):
             f"randomize_input can not handle input of type {type(inputs)}"
         )
 
+def cold_start_experiment(args, model_iter_fn, model, example_inputs, optimize_ctx):
+    timings = np.zeros((args.repeat, 2), np.float64)
+    # if we randomize the input, we should also check the result is correct
+    should_check_result = should_randomize_input = args.randomize_input
+    is_correct = True
+
+    for rep in range(args.repeat):
+        inputs = (
+            randomize_input(copy.deepcopy(example_inputs))
+            if should_randomize_input
+            else example_inputs
+        )
+
+        # interleave the runs to handle frequency scaling and load changes
+        timings[rep, 0], expected_output = timed(
+            model, model_iter_fn, inputs, return_result=True
+        )
+        with optimize_ctx:
+            timings[rep, 1], actual_output = timed(
+                model, model_iter_fn, inputs, return_result=True
+            )
+        if should_check_result:
+            is_correct = is_correct and same(expected_output, actual_output)
+    pvalue = ttest_ind(timings[:, 0], timings[:, 1]).pvalue
+    worst = np.max(timings, axis=0)
+    speedup = worst[0] / worst[1]
+    output_csv(
+        output_filename,
+        ("dev", "name", "worst case cold-start speedup"),
+        [current_device, current_name, float(speedup)],
+    )
+    return format_speedup(speedup, pvalue, is_correct=is_correct)
 
 def speedup_experiment(args, model_iter_fn, model, example_inputs):
     """
@@ -749,6 +781,9 @@ def main():
         help="speedup using the ltc backend without reusing compiled graph",
     )
     group.add_argument(
+        "--cold-start", action="store_true", help=help(cold_start_experiment)
+    )
+    group.add_argument(
         "--overhead", action="store_true", help=help(overhead_experiment)
     )
     group.add_argument(
@@ -907,6 +942,11 @@ def main():
         optimize_ctx = torchdynamo.optimize(dummy_fx_compile, nopython=args.nopython)
         experiment = speedup_experiment
         output_filename = "overheads.csv"
+    elif args.cold_start:
+        optimize_ctx = torchdynamo.optimize(fixed_strategy1, nopython=args.nopython)
+        experiment = cold_start_experiment
+        output_filename = "cold_start.csv"
+        args.isolate = True
     elif args.inductor or args.inductor_dynamic:
         import torchinductor.config
 
@@ -1217,6 +1257,13 @@ def run_one_model(
 
         torch.manual_seed(1337)
         torchdynamo.reset()
+
+        if experiment.func is cold_start_experiment:
+            results = []
+            results.append(experiment(model, example_inputs, optimize_ctx))
+            print(" ".join(map(str, results)))
+            return 0
+
         try:
             with optimize_ctx:
                 new_result = model_iter_fn(model, example_inputs)
