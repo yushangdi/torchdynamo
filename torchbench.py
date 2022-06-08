@@ -46,6 +46,8 @@ from torchdynamo.testing import reduce_to_scalar_loss
 from torchdynamo.testing import same
 from torchdynamo.utils import clone_inputs
 
+torch.backends.cuda.matmul.allow_tf32 = True
+
 os.environ["KALDI_ROOT"] = "/tmp"  # avoids some spam
 for torchbench_dir in (
     "../torchbenchmark",
@@ -287,6 +289,28 @@ def coverage_experiment(args, model_iter_fn, model, example_inputs):
     )
     return coverage_result
 
+def chrome_trace_experiment(args, model_iter_fn, model, example_inputs):
+    """
+    Output the chrome trace of the model on example_inputs
+
+    Writes to ./chrome_trace_{chrome-trace-name}/chrome_trace_{chrome-trace-name}_{model_name}.csv
+    """
+    from torch.profiler import profile, ProfilerActivity
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+        with torchdynamo.run():
+            model_iter_fn(model, example_inputs)
+
+    print()
+    chrome_trace_name = args.chrome_trace_name[0]
+    folder_name = f"chrome_trace_{chrome_trace_name}"
+    isExist = os.path.exists(folder_name)
+    if not isExist:
+        os.makedirs(folder_name)
+        print("create folder " + folder_name)
+
+    trace_filename = f"{folder_name}/chrome_trace_{chrome_trace_name}_{current_name}_{current_device}.json"
+    prof.export_chrome_trace(trace_filename)
+    return trace_filename
 
 def speedup_experiment_fx2trt(args, model_iter_fn, model, example_inputs):
     """
@@ -655,6 +679,9 @@ def main():
     )
     parser.add_argument("--devices", "-d", action="append", help="cpu or cuda")
     parser.add_argument(
+        "--chrome-trace-name", action="append", help="the folder name of output chrome traces. Only works with --chrome-trace"
+    )
+    parser.add_argument(
         "--repeat", "-n", type=int, default=30, help="number of timing runs"
     )
     parser.add_argument(
@@ -722,6 +749,10 @@ def main():
     group.add_argument(
         "--coverage", action="store_true", help="(default) " + help(coverage_experiment)
     )
+    group.add_argument(
+        "--chrome-trace", action="store_true", help="(default) " + help(chrome_trace_experiment)
+    )
+
     group.add_argument(
         "--online-autotune", action="store_true", help=help(speedup_experiment)
     )
@@ -1068,10 +1099,26 @@ def main():
     elif args.recompile_profiler:
         output_filename = "recompile_profiler_log.csv"
         experiment = recompile_profiler_experiment
+    # elif args.chrome_trace:
+    #     optimize_ctx = torchdynamo.optimize(
+    #         aot_autograd_speedup_strategy, nopython=args.nopython #mintcut strategy
+    #     )
+    #     backend_str = "nvfuser" if args.nvfuser else "nnc"
+    #     experiment = chrome_trace_experiment
+    #     output_filename = "chrome_traces.csv"
     else:
         optimize_ctx = torchdynamo.optimize(fx_insert_profiling, nopython=args.nopython)
         experiment = coverage_experiment
         output_filename = "coverage.csv"
+
+    if args.chrome_trace:
+        # optimize_ctx = torchdynamo.optimize(
+        #     aot_autograd_speedup_strategy, nopython=args.nopython #mintcut strategy
+        # )
+        # backend_str = "nvfuser" if args.nvfuser else "nnc"
+        # change the experiment to chrome_trace_experiment, but preserve other settings e.g. optimize_ctx or backend_str
+        experiment = chrome_trace_experiment
+        output_filename = "chrome_traces.csv"
 
     experiment = functools.partial(experiment, args, model_iter_fn)
 
