@@ -291,16 +291,43 @@ def coverage_experiment(args, model_iter_fn, model, example_inputs):
 
 def chrome_trace_experiment(args, model_iter_fn, model, example_inputs):
     """
-    Output the chrome trace of the model on example_inputs
+    Output the chrome trace of the model.
+    Writes the total runtime without the profiler to chrome_traces.csv
 
     Writes to ./chrome_trace_{chrome-trace-name}/chrome_trace_{chrome-trace-name}_{model_name}.csv
     """
     from torch.profiler import profile, ProfilerActivity
-    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-        with torchdynamo.run():
-            model_iter_fn(model, example_inputs)
 
-    chrome_trace_name = args.chrome_trace_name[0]
+    should_randomize_input = args.randomize_input
+
+    num_runs = args.repeat
+
+    inputs = (
+        randomize_input(copy.deepcopy(example_inputs))
+        if should_randomize_input
+        else example_inputs
+    )
+
+    
+    with torchdynamo.run():
+        timing, _ = timed(
+            model, model_iter_fn, inputs, times = num_runs, return_result=True
+        )
+
+    output_csv(
+        output_filename,
+        ("dev", "name", "runtime"),
+        [current_device, current_name, float(timing)],
+    )
+
+    torch.manual_seed(1337)
+    with profile(activities=[ProfilerActivity.CUDA]) as prof:
+        with torchdynamo.run():
+            for _ in range(num_runs):
+                model_iter_fn(model, inputs, collect_outputs=False)
+                synchronize()
+
+    chrome_trace_name = args.chrome_trace_name
     folder_name = f"chrome_trace_{chrome_trace_name}"
     isExist = os.path.exists(folder_name)
     if not isExist:
@@ -309,7 +336,8 @@ def chrome_trace_experiment(args, model_iter_fn, model, example_inputs):
 
     trace_filename = f"{folder_name}/chrome_trace_{chrome_trace_name}_{current_name}_{current_device}.json"
     prof.export_chrome_trace(trace_filename)
-    return trace_filename
+
+    return  f"{timing:.3f}"
 
 def speedup_experiment_fx2trt(args, model_iter_fn, model, example_inputs):
     """
@@ -678,7 +706,7 @@ def main():
     )
     parser.add_argument("--devices", "-d", action="append", help="cpu or cuda")
     parser.add_argument(
-        "--chrome-trace-name", action="append", help="the folder name of output chrome traces. Only works with --chrome-trace"
+        "--chrome-trace-name", action="store", help="the folder name of output chrome traces. Only works with --chrome-trace"
     )
     parser.add_argument(
         "--chrome-trace", action="store_true", help= help(chrome_trace_experiment)
@@ -1104,9 +1132,11 @@ def main():
         output_filename = "coverage.csv"
 
     if args.chrome_trace:
+        if not args.chrome_trace_name:
+            print("warning: no chrome trace name provided")
         # change the experiment to chrome_trace_experiment, but preserve other settings e.g. optimize_ctx or backend_str
         experiment = chrome_trace_experiment
-        output_filename = "chrome_traces.csv"
+        output_filename = f"chrome_traces_{args.chrome_trace_name}.csv"
 
     experiment = functools.partial(experiment, args, model_iter_fn)
 
