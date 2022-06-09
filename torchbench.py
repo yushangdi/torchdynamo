@@ -294,7 +294,7 @@ def chrome_trace_experiment(args, model_iter_fn, model, example_inputs):
     Output the chrome trace of the model.
     Writes the total runtime without the profiler to chrome_traces.csv
 
-    Writes to ./chrome_trace_{chrome-trace-name}/chrome_trace_{chrome-trace-name}_{model_name}.csv
+    Outputs ./chrome_trace_{chrome-trace-name}/{model_name}_chrome_trace_{chrome-trace-name}_{current_device}.json
     """
     from torch.profiler import profile, ProfilerActivity
 
@@ -307,7 +307,12 @@ def chrome_trace_experiment(args, model_iter_fn, model, example_inputs):
         if should_randomize_input
         else example_inputs
     )
-
+    
+    #warmup runs
+    for _ in range(5):
+        model_iter_fn(model, inputs, collect_outputs=False)
+    
+    synchronize()
     
     with torchdynamo.run():
         timing, _ = timed(
@@ -321,6 +326,7 @@ def chrome_trace_experiment(args, model_iter_fn, model, example_inputs):
     )
 
     torch.manual_seed(1337)
+    synchronize()
     with profile(activities=[ProfilerActivity.CUDA]) as prof:
         with torchdynamo.run():
             for _ in range(num_runs):
@@ -334,7 +340,7 @@ def chrome_trace_experiment(args, model_iter_fn, model, example_inputs):
         os.makedirs(folder_name)
         print("create folder " + folder_name)
 
-    trace_filename = f"{folder_name}/chrome_trace_{chrome_trace_name}_{current_name}_{current_device}.json"
+    trace_filename = f"{folder_name}/{current_name}_chrome_trace_{chrome_trace_name}_{current_device}.json"
     prof.export_chrome_trace(trace_filename)
 
     return  f"{timing:.3f}"
