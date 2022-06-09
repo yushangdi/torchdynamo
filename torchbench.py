@@ -393,6 +393,9 @@ def speedup_experiment(args, model_iter_fn, model, example_inputs):
 
     Writes to ./speedups.csv
     """
+    if args.count_cse_ops:
+        with open('count_ops.txt', 'a') as g:
+            g.write(f"{current_name}")
     timings = np.zeros((args.repeat, 2), np.float64)
     # if we randomize the input, we should also check the result is correct
     should_check_result = should_randomize_input = args.randomize_input
@@ -709,7 +712,10 @@ def main():
         "--chrome-trace-name", action="store", help="the folder name of output chrome traces. Only works with --chrome-trace"
     )
     parser.add_argument(
-        "--chrome-trace", action="store_true", help= help(chrome_trace_experiment)
+        "--chrome-trace", action="store_true", help=help(chrome_trace_experiment)
+    )
+    parser.add_argument(
+        "--count-cse-ops", action="store_true", help="count the number of operators CSE'd out by AOTAutograd CSE"
     )
     parser.add_argument(
         "--repeat", "-n", type=int, default=30, help="number of timing runs"
