@@ -300,7 +300,6 @@ def chrome_trace_experiment(args, model_iter_fn, model, example_inputs):
         with torchdynamo.run():
             model_iter_fn(model, example_inputs)
 
-    print()
     chrome_trace_name = args.chrome_trace_name[0]
     folder_name = f"chrome_trace_{chrome_trace_name}"
     isExist = os.path.exists(folder_name)
@@ -682,6 +681,9 @@ def main():
         "--chrome-trace-name", action="append", help="the folder name of output chrome traces. Only works with --chrome-trace"
     )
     parser.add_argument(
+        "--chrome-trace", action="store_true", help= help(chrome_trace_experiment)
+    )
+    parser.add_argument(
         "--repeat", "-n", type=int, default=30, help="number of timing runs"
     )
     parser.add_argument(
@@ -748,9 +750,6 @@ def main():
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
         "--coverage", action="store_true", help="(default) " + help(coverage_experiment)
-    )
-    group.add_argument(
-        "--chrome-trace", action="store_true", help="(default) " + help(chrome_trace_experiment)
     )
 
     group.add_argument(
@@ -1099,23 +1098,12 @@ def main():
     elif args.recompile_profiler:
         output_filename = "recompile_profiler_log.csv"
         experiment = recompile_profiler_experiment
-    # elif args.chrome_trace:
-    #     optimize_ctx = torchdynamo.optimize(
-    #         aot_autograd_speedup_strategy, nopython=args.nopython #mintcut strategy
-    #     )
-    #     backend_str = "nvfuser" if args.nvfuser else "nnc"
-    #     experiment = chrome_trace_experiment
-    #     output_filename = "chrome_traces.csv"
     else:
         optimize_ctx = torchdynamo.optimize(fx_insert_profiling, nopython=args.nopython)
         experiment = coverage_experiment
         output_filename = "coverage.csv"
 
     if args.chrome_trace:
-        # optimize_ctx = torchdynamo.optimize(
-        #     aot_autograd_speedup_strategy, nopython=args.nopython #mintcut strategy
-        # )
-        # backend_str = "nvfuser" if args.nvfuser else "nnc"
         # change the experiment to chrome_trace_experiment, but preserve other settings e.g. optimize_ctx or backend_str
         experiment = chrome_trace_experiment
         output_filename = "chrome_traces.csv"
