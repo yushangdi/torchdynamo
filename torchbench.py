@@ -459,6 +459,41 @@ def print_aten_ops(gm, example_inputs):
 
     return aot_module(gm, fw_compiler=trace_printer, bw_compiler=trace_printer)
 
+graph_index = 0
+def save_fx(gm, example_inputs):
+    from functorch.compile import aot_module, aot_module_simplified
+
+    def graph_saver_forward(gm, fw_args):
+        input_meta = []
+        for arg in fw_args:
+            if(type(arg) == int or type(arg) == float):
+                input_meta.append((type(arg),))
+            else:
+                input_meta.append((type(arg), arg.shape, arg.stride(), arg.dtype))
+        global current_name
+        global graph_index
+        global folder_name
+        isExist = os.path.exists(f"{folder_name}/{current_name}")
+        if not isExist:
+            os.makedirs(f"{folder_name}/{current_name}")
+        gm.to_folder(f"{folder_name}/{current_name}/{current_name}_forward_{graph_index}")
+        pickle.dump(input_meta, open( f"{folder_name}/{current_name}/{current_name}_forward_{graph_index}/{current_name}_forward_{graph_index}.input", "wb" ))
+        return gm
+
+    def graph_saver_backward(gm, bw_args):
+        input_meta = []
+        for arg in bw_args:
+            if(type(arg) == int or type(arg) == float):
+                input_meta.append((type(arg),))
+            else:
+                input_meta.append((type(arg), arg.shape, arg.stride(), arg.dtype))
+        global current_name
+        global graph_index
+        gm.to_folder(f"{folder_name}/{current_name}/{current_name}_backward_{graph_index}")
+        pickle.dump(input_meta, open( f"{folder_name}/{current_name}/{current_name}_backward_{graph_index}/{current_name}_backward_{graph_index}.input", "wb" ))
+        graph_index = graph_index + 1
+        return gm
+
 
 def baselines(models, model_iter_fn, example_inputs, args):
     """
@@ -863,6 +898,11 @@ def main():
         help="Print fx traces captured from model",
     )
     group.add_argument(
+        "--save-graphs",
+        action="store_true",
+        help="Save fx graphs captured from model",
+    )
+    group.add_argument(
         "--print-aten-ops",
         action="store_true",
         help="Print traces of aten ops captured by AOT autograd",
@@ -1116,6 +1156,12 @@ def main():
             print_aten_ops,
             nopython=args.nopython,
         )
+    elif args.save_graphs:
+        optimize_ctx = torchdynamo.optimize(
+            save_fx,
+            nopython=args.nopython,
+        )
+        output_filename = "save_graph.csv"
     elif args.accuracy_ts:
         optimize_ctx = torchdynamo.optimize(fixed_strategy1, nopython=args.nopython)
         experiment = speedup_experiment
