@@ -1245,8 +1245,8 @@ def main(runner, original_dir=None):
                 cos_similarity,
                 args.skip_accuracy_check,
             )
-        stats_file = output_filename.split(".csv")[0] + "_stats.csv"
         if args.generate_aot_autograd_stats:
+            stats_file = output_filename.split(".csv")[0] + "_stats.csv"
             output_csv(
                 stats_file,
                 ("dev", "name", "total_aot_graphs", "ok_aot_graphs"),
