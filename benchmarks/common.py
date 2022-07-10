@@ -1066,7 +1066,7 @@ def main(runner, original_dir=None):
         else:
             torchinductor.config.dynamic_shapes = False
 
-        if True or args.training:
+        if args.training:
             from torchinductor.compile_fx import compile_fx_training
 
             optimize_ctx = torchdynamo.optimize(
