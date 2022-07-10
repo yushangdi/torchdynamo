@@ -779,7 +779,7 @@ class ReproTests(torchdynamo.testing.TestCase):
                 640,
                 False,
             )
-        self.assertGreaterEqual(torchdynamo.utils.counters["frames"]["ok"], 3)
+        self.assertGreaterEqual(torchdynamo.utils.counters["frames"]["ok"], 2)
         self.assertEqual(
             torchdynamo.utils.counters["frames"]["total"],
             torchdynamo.utils.counters["frames"]["ok"],
@@ -914,9 +914,9 @@ class ReproTests(torchdynamo.testing.TestCase):
             for _ in range(10):
                 self.assertTrue(same(model(a, b, c, d), correct))
 
-        self.assertEqual(cnt.frame_count, ifdyn(5, 4))
+        self.assertEqual(cnt.frame_count, ifdyn(4, 3))
         # TODO(jansel): figure out why op count depends on imports
-        self.assertIn(cnt.op_count, (36, 35, 29, 28))
+        self.assertIn(cnt.op_count, (33, 32, 26, 25))
 
     def test_hf_model_output(self):
         ex = ModelOutput(a=torch.randn(10), b=torch.randn(10), c=torch.randn(10))
@@ -1419,3 +1419,21 @@ class ReproTests(torchdynamo.testing.TestCase):
         fn()
         with torchdynamo.optimize("eager"):
             fn()
+
+    def test_slice_into_list_mutable(self):
+        class Mod(torch.nn.Module):
+            def forward(self, listy):
+                x = listy[3:5]
+                for i in range(10):
+                    z = torch.abs(torch.randn(10)) + 1
+                    x[0] = z
+                return x
+
+        m = Mod()
+        listy = [torch.randn(10)] * 10
+
+        cnt = torchdynamo.testing.CompileCounter()
+        with torchdynamo.optimize(cnt, nopython=True):
+            m.forward(listy)
+
+        self.assertEqual(cnt.frame_count, 1)
