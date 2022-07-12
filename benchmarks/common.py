@@ -38,6 +38,8 @@ from torchdynamo.profiler import fx_insert_profiling
 from torchdynamo.testing import dummy_fx_compile
 from torchdynamo.testing import format_speedup
 from torchdynamo.testing import same
+from functorch._src.compilers import get_save_fx_default_func
+from shutil import rmtree
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +47,6 @@ log = logging.getLogger(__name__)
 current_name = ""
 current_device = ""
 output_filename = None
-
 
 def output_csv(filename, headers, row):
     assert filename
@@ -894,6 +895,11 @@ def parse_args():
         help="Print fx traces captured from model",
     )
     group.add_argument(
+        "--save-graphs",
+        action="store_true",
+        help="Save fx graphs captured from model",
+    )
+    group.add_argument(
         "--print-aten-ops",
         action="store_true",
         help="Print traces of aten ops captured by AOT autograd",
@@ -1206,6 +1212,9 @@ def main(runner, original_dir=None):
 
     runner.setup_amp()
 
+    if args.save_graphs:
+        experiment = null_experiment
+        output_filename = "dump_graphs.csv"
     experiment = functools.partial(experiment, args, model_iter_fn)
 
     cos_similarity = args.cosine
@@ -1233,6 +1242,14 @@ def main(runner, original_dir=None):
                 model, example_inputs = cast_to_fp32(model, example_inputs)
             elif args.float16:
                 model, example_inputs = cast_to_fp16(model, example_inputs)
+
+            if args.save_graphs:
+                folder_name = "huggingface_graphs"
+                save_fx_func = get_save_fx_default_func(current_name, folder_name, dump_example_input = False)
+                optimize_ctx = torchdynamo.optimize(
+                    save_fx_func,
+                    nopython=args.nopython,
+                )
 
             runner.run_one_model(
                 name,
@@ -1263,6 +1280,11 @@ def main(runner, original_dir=None):
                 subprocess.check_call([sys.executable] + sys.argv + [f"--only={name}"])
             except subprocess.SubprocessError:
                 print("ERROR")
+                if args.save_graphs:
+                    folder_name = "huggingface_graphs"
+                    if os.path.exists(f"{folder_name}/{current_name}"):
+                        rmtree(f"{folder_name}/{current_name}")
+                    logging.exception("removing folder")
                 for device in args.devices:
                     output_csv(output_filename, [], [device, name, 0.0])
         print_summary(output_filename)

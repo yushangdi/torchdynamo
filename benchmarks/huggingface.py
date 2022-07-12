@@ -127,7 +127,7 @@ ALL_MODELS = {
     "GPT2LMHeadModel_gpt2": (
         GPT2Config.from_pretrained("gpt2-large"),
         GPT2LMHeadModel,
-        partial(hf_general_inputs, batch_size=2, seq_len=1024),
+        partial(hf_general_inputs, batch_size=1, seq_len=1024),
     ),
     "RobertaForMaskedLM_roberta": (
         RobertaConfig.from_pretrained("roberta-large"),
@@ -142,7 +142,7 @@ ALL_MODELS = {
     "T5ForConditionalGeneration_t5": (
         T5Config.from_pretrained("t5-large"),
         T5ForConditionalGeneration,
-        partial(hf_general_inputs, batch_size=8, seq_len=512, tgt_seq_len=128),
+        partial(hf_general_inputs, batch_size=2, seq_len=512, tgt_seq_len=128),
     ),
     "BartForConditionalGeneration_bart": (
         BartConfig.from_pretrained("facebook/bart-large"),
@@ -157,7 +157,7 @@ ALL_MODELS = {
     "XLNetLMHeadModel_xlnet": (
         XLNetConfig.from_pretrained("xlnet-large-cased"),
         XLNetLMHeadModel,
-        partial(hf_general_inputs, batch_size=16, seq_len=512),
+        partial(hf_general_inputs, batch_size=2, seq_len=512),
     ),
     "allenai-longformer-base-4096": (
         AutoConfig.from_pretrained("allenai/longformer-base-4096"),
