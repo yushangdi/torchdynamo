@@ -45,6 +45,7 @@ from torchdynamo.testing import format_speedup
 from torchdynamo.testing import reduce_to_scalar_loss
 from torchdynamo.testing import same
 from torchdynamo.utils import clone_inputs
+import pickle
 
 torch.backends.cuda.matmul.allow_tf32 = True
 
@@ -460,6 +461,7 @@ def print_aten_ops(gm, example_inputs):
     return aot_module(gm, fw_compiler=trace_printer, bw_compiler=trace_printer)
 
 graph_index = 0
+folder_name = "torch_bench_graphs"
 def save_fx(gm, example_inputs):
     from functorch.compile import aot_module, aot_module_simplified
 
@@ -494,6 +496,7 @@ def save_fx(gm, example_inputs):
         graph_index = graph_index + 1
         return gm
 
+    return aot_module_simplified(gm, fw_compiler=graph_saver_forward, bw_compiler=graph_saver_backward)
 
 def baselines(models, model_iter_fn, example_inputs, args):
     """
