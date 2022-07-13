@@ -54,11 +54,14 @@ finally:
 # We are primarily interested in tf32 datatype
 torch.backends.cuda.matmul.allow_tf32 = True
 
-SKIP = {
+SKIP = set()
+
+FAIL_FOR_DUMP = {
     "DebertaForMaskedLM_deberata",
     "Reformer",
     "bigbird",
-    "google-fnet-base"
+    "google-fnet-base",
+    "AlbertForPreTraining_albert"
 }
 
 
@@ -268,6 +271,8 @@ class HuggingfaceRunner(BenchmarkRunner):
                     continue  # bad benchmark implementation
 
     def iter_model_names(self, args):
+        if args.save_graphs:
+            SKIP.update(FAIL_FOR_DUMP)
         for model_name in ALL_MODELS:
             if (
                 not re.search("|".join(args.filter), model_name, re.I)

@@ -1279,11 +1279,11 @@ def main(runner, original_dir=None):
                 subprocess.check_call([sys.executable] + sys.argv + [f"--only={name}"])
             except subprocess.SubprocessError:
                 print("ERROR")
-                if args.save_graphs:
-                    folder_name = args.save_graphs
-                    if os.path.exists(f"{folder_name}/{current_name}"):
-                        rmtree(f"{folder_name}/{current_name}")
-                    logging.exception(f"removing folder {folder_name}/{current_name}")
+                # if args.save_graphs:
+                #     folder_name = args.save_graphs
+                #     if os.path.exists(f"{folder_name}/{current_name}"):
+                #         rmtree(f"{folder_name}/{current_name}")
+                #     logging.exception(f"removing folder {folder_name}/{current_name}")
                 for device in args.devices:
                     output_csv(output_filename, [], [device, name, 0.0])
         print_summary(output_filename)

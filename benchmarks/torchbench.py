@@ -179,12 +179,7 @@ DYNAMIC_SHAPES_NOT_YET_WORKING = {
     "timm_nfnet",
 }
 
-SKIP = {
-    # https://github.com/pytorch/torchdynamo/issues/101
-    "detectron2_maskrcnn",
-    # https://github.com/pytorch/torchdynamo/issues/145
-    "fambench_xlmr",
-
+FAIL_FOR_DUMP = {
     # models that error out for graph dumping
     "demucs",
     "dlrm", # joint doesn't work 
@@ -204,9 +199,17 @@ SKIP = {
     "detectron2_fasterrcnn_r_50_c4",
     "detectron2_fasterrcnn_r_50_dc5",
     "detectron2_fasterrcnn_r_50_fpn",
+    "detectron2_maskrcnn_r_50_fpn",
     "detectron2_maskrcnn_r_101_c4",
-    "detectron2_maskrcnn_r_101_fpn"
+    "detectron2_maskrcnn_r_101_fpn",
+    "detectron2_maskrcnn_r_50_c4",
+}
 
+SKIP = {
+    # https://github.com/pytorch/torchdynamo/issues/101
+    "detectron2_maskrcnn",
+    # https://github.com/pytorch/torchdynamo/issues/145
+    "fambench_xlmr",
 }
 
 
@@ -290,6 +293,8 @@ class TorchBenchmarkRunner(BenchmarkRunner):
     def iter_model_names(self, args):
         from torchbenchmark import _list_model_paths
 
+        if args.save_graphs:
+            SKIP.update(FAIL_FOR_DUMP)
         for model_path in _list_model_paths():
             model_name = os.path.basename(model_path)
             if (
