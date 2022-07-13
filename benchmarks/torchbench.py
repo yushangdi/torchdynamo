@@ -203,6 +203,7 @@ FAIL_FOR_DUMP = {
     "detectron2_maskrcnn_r_101_c4",
     "detectron2_maskrcnn_r_101_fpn",
     "detectron2_maskrcnn_r_50_c4",
+    "vision_maskrcnn"
 }
 
 SKIP = {
