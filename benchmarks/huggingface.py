@@ -54,7 +54,12 @@ finally:
 # We are primarily interested in tf32 datatype
 torch.backends.cuda.matmul.allow_tf32 = True
 
-SKIP = {}
+SKIP = {
+    "DebertaForMaskedLM_deberata",
+    "Reformer",
+    "bigbird",
+    "google-fnet-base"
+}
 
 
 def rand_int_tensor(device, low, high, shape):

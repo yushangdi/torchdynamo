@@ -184,6 +184,29 @@ SKIP = {
     "detectron2_maskrcnn",
     # https://github.com/pytorch/torchdynamo/issues/145
     "fambench_xlmr",
+
+    # models that error out for graph dumping
+    "demucs",
+    "dlrm", # joint doesn't work 
+    "fastNLP_Bert",
+    "hf_BigBird",
+    "hf_Reformer",
+    "mobilenet_v2_quantized_qat", # joint doesn't work 
+    "moco", # joint doesn't work 
+    "resnet50_quantized_qat",
+    "speech_transformer",
+    "tacotron2",
+    "tts_angular",
+    "fambench_dlrm",
+    "detectron2_fasterrcnn_r_101_c4",
+    "detectron2_fasterrcnn_r_101_dc5",
+    "detectron2_fasterrcnn_r_101_fpn",
+    "detectron2_fasterrcnn_r_50_c4",
+    "detectron2_fasterrcnn_r_50_dc5",
+    "detectron2_fasterrcnn_r_50_fpn",
+    "detectron2_maskrcnn_r_101_c4",
+    "detectron2_maskrcnn_r_101_fpn"
+
 }
 
 
